@@ -3,10 +3,12 @@ package com.seveneleven.employeepayroll;
 import java.io.IOException;
 import java.util.*;
 
+import com.seveneleven.employeepayroll.auth.AuthenticationService;
 import com.seveneleven.employeepayroll.exception.ValidationException;
 import com.seveneleven.employeepayroll.exception.Validator;
 import com.seveneleven.employeepayroll.model.Employee;
 import com.seveneleven.employeepayroll.model.UserAccount;
+import com.seveneleven.employeepayroll.session.Session;
 
 /**
  * EmployeeRegistrationApp
@@ -82,10 +84,16 @@ public class EmployeeRegistrationApp {
 		catch (IOException e) {
 			System.out.println("\nError saving info");
 		}
-
-		// Finally block always executes to release resources
-		finally {
-			sc.close(); // Close scanner to avoid resource leaks
-		}
+		System.out.println("===USE CASE-2 USER AUTHENTICATION AND LOGIN===");
+		AuthenticationService auth = new AuthenticationService();
+	       auth.registerUser();   // user input registration
+	       Session session = auth.login();  // login
+	       if(session != null) {
+	           System.out.println("\n" + session);
+	           if(!session.isExpired()) {
+	               System.out.println("Session active and valid.");
+	           }
+	       }
+	       sc.close();
 	}
 }
