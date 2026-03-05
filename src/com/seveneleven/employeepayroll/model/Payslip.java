@@ -51,4 +51,15 @@ public class Payslip {
 
                 + "==============================";
     }
+
+	public Employee getEmployee() {
+		// TODO Auto-generated method stub
+		return employee;
+	}
+	public SalaryComponents getComponents() {
+		return components;
+	}
+	public String getMonth() {
+		return month;
+	}
 }
