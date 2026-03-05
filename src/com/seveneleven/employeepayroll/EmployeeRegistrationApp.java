@@ -1,99 +1,126 @@
 package com.seveneleven.employeepayroll;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Scanner;
 
 import com.seveneleven.employeepayroll.auth.AuthenticationService;
 import com.seveneleven.employeepayroll.exception.ValidationException;
 import com.seveneleven.employeepayroll.exception.Validator;
 import com.seveneleven.employeepayroll.model.Employee;
+import com.seveneleven.employeepayroll.model.Payslip;
 import com.seveneleven.employeepayroll.model.UserAccount;
+import com.seveneleven.employeepayroll.service.PayrollService;
 import com.seveneleven.employeepayroll.session.Session;
 
 /**
  * EmployeeRegistrationApp
  * 
- * This is the main application class that demonstrates
- * Use Case 1: Employee Registration.
- * 
- * Responsibilities:
- * - Collect employee details from the user
- * - Validate inputs using the Validator class
- * - Create UserAccount and Employee objects
- * - Persist employee data to a file
- * - Handle validation and IO exceptions
+ * Demonstrates:
+ * UC1 - Employee Registration
+ * UC2 - User Authentication
+ * UC3 - Payslip Generation
  */
 public class EmployeeRegistrationApp {
 
-	public static void main(String[] args) {
+    public static void main(String[] args) {
 
-		// Scanner object used to read user input from the console
-		Scanner sc = new Scanner(System.in);
+        Scanner sc = new Scanner(System.in);
 
-		System.out.println("== USE CASE 1: EMPLOYEE REGISTRATION ===");
+        Employee emp = null; // will store registered employee
 
-		try {
+        System.out.println("== USE CASE 1: EMPLOYEE REGISTRATION ===");
 
-			// Collect employee information from the user
-			System.out.print("Enter Employee ID: ");
-			String empID = sc.nextLine();
+        try {
 
-			System.out.print("Enter Name: ");
-			String name = sc.nextLine();
+            System.out.print("Enter Employee ID: ");
+            String empID = sc.nextLine();
 
-			System.out.print("Enter email: ");
-			String email = sc.nextLine();
+            System.out.print("Enter Name: ");
+            String name = sc.nextLine();
 
-			System.out.print("Enter phone: ");
-			String phone = sc.nextLine();
+            System.out.print("Enter email: ");
+            String email = sc.nextLine();
 
-			System.out.print("Enter UserName: ");
-			String username = sc.nextLine();
+            System.out.print("Enter phone: ");
+            String phone = sc.nextLine();
 
-			System.out.print("Enter Password: ");
-			String password = sc.nextLine();
+            System.out.print("Enter UserName: ");
+            String username = sc.nextLine();
 
-			// Validate user input using Validator utility methods
-			Validator.validateEmail(email);
-			Validator.validateEmpID(empID);
-			Validator.validatePhone(phone);
+            System.out.print("Enter Password: ");
+            String password = sc.nextLine();
 
-			// Create a UserAccount object for login credentials
-			UserAccount account = new UserAccount(username, password);
+            // Validate input
+            Validator.validateEmail(email);
+            Validator.validateEmpID(empID);
+            Validator.validatePhone(phone);
 
-			// Create an Employee object using the provided details
-			Employee emp = new Employee(empID, name, email, phone, account);
+            // Create user account
+            UserAccount account = new UserAccount(username, password);
 
-			// Persist employee information to file (employees.txt)
-			emp.persist();
+            // Create employee
+            emp = new Employee(empID, name, email, phone, account);
 
-			// Display confirmation message
-			System.out.println("Employee registered successfully");
+            // Save employee to file
+            emp.persist();
 
-			// Print employee details using overridden toString()
-			System.out.println(emp);
+            System.out.println("Employee registered successfully");
+            System.out.println(emp);
 
-		}
+        } 
+        catch (ValidationException e) {
+            System.out.println("\nInvalid details: " + e.getMessage());
+        } 
+        catch (IOException e) {
+            System.out.println("\nError saving info");
+        }
 
-		// Catch validation errors (invalid email, phone, or employee ID)
-		catch (ValidationException e) {
-			System.out.println("\nInvalid details: " + e.getMessage());
-		}
+        // ==========================
+        // USE CASE 2 - AUTHENTICATION
+        // ==========================
+        System.out.println("\n=== USE CASE 2: USER AUTHENTICATION ===");
 
-		// Catch errors that occur during file writing
-		catch (IOException e) {
-			System.out.println("\nError saving info");
-		}
-		System.out.println("===USE CASE-2 USER AUTHENTICATION AND LOGIN===");
-		AuthenticationService auth = new AuthenticationService();
-	       auth.registerUser();   // user input registration
-	       Session session = auth.login();  // login
-	       if(session != null) {
-	           System.out.println("\n" + session);
-	           if(!session.isExpired()) {
-	               System.out.println("Session active and valid.");
-	           }
-	       }
-	       sc.close();
-	}
+        AuthenticationService auth = new AuthenticationService();
+
+        auth.registerUser();
+
+        Session session = auth.login();
+
+        if (session != null) {
+
+            System.out.println("\n" + session);
+
+            if (!session.isExpired()) {
+                System.out.println("Session active and valid.");
+            }
+        }
+
+        // ==========================
+        // USE CASE 3 - PAYSLIP
+        // ==========================
+        System.out.println("\n=== USE CASE 3: PAYSLIP GENERATION ===");
+
+        System.out.print("Enter Month: ");
+        String month = sc.nextLine();
+
+        System.out.print("Enter Basic Salary: ");
+        double basic = sc.nextDouble();
+
+        System.out.print("Enter HRA: ");
+        double hra = sc.nextDouble();
+
+        System.out.print("Enter DA: ");
+        double da = sc.nextDouble();
+
+        System.out.print("Enter Allowances: ");
+        double allowances = sc.nextDouble();
+
+        PayrollService service = new PayrollService();
+
+        Payslip payslip = service.generatePayslip(emp, month, basic, hra, da, allowances);
+
+        System.out.println(payslip);
+
+        sc.close();
+    }
 }
