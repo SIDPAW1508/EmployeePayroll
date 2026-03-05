@@ -1,6 +1,7 @@
 package com.seveneleven.employeepayroll;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 import com.seveneleven.employeepayroll.auth.AuthenticationService;
@@ -10,155 +11,213 @@ import com.seveneleven.employeepayroll.model.DownloadToken;
 import com.seveneleven.employeepayroll.model.Employee;
 import com.seveneleven.employeepayroll.model.Payslip;
 import com.seveneleven.employeepayroll.model.PayslipDownload;
+import com.seveneleven.employeepayroll.model.SalaryComponents;
 import com.seveneleven.employeepayroll.model.UserAccount;
+import com.seveneleven.employeepayroll.service.DashboardFactory;
 import com.seveneleven.employeepayroll.service.FileService;
 import com.seveneleven.employeepayroll.service.PayrollService;
+import com.seveneleven.employeepayroll.session.Dashboard;
 import com.seveneleven.employeepayroll.session.Session;
 
-/**
- * EmployeeRegistrationApp
- * 
- * Demonstrates:
- * UC1 - Employee Registration
- * UC2 - User Authentication
- * UC3 - Payslip Generation
- */
 public class EmployeeRegistrationApp {
 
-	public static void main(String[] args) {
+    private static Scanner sc = new Scanner(System.in);
 
-		Scanner sc = new Scanner(System.in);
+    public static void main(String[] args) {
 
-		Employee emp = null; // will store registered employee
+        Employee emp = registerEmployee();
+        if (emp == null) return;
 
-		System.out.println("== USE CASE 1: EMPLOYEE REGISTRATION ===");
+        Session session = authenticateUser();
+        if (session == null || session.isExpired()) {
+            System.out.println("Session invalid or expired. Exiting...");
+            return;
+        }
 
-		try {
+        Payslip payslip = generatePayslip(emp);
+        if (payslip == null) return;
 
-			System.out.print("Enter Employee ID: ");
-			String empID = sc.nextLine();
+        downloadPayslip(payslip);
 
-			System.out.print("Enter Name: ");
-			String name = sc.nextLine();
+        displayDashboard(emp);
 
-			System.out.print("Enter email: ");
-			String email = sc.nextLine();
+        sc.close();
+    }
 
-			System.out.print("Enter phone: ");
-			String phone = sc.nextLine();
+    // ==========================
+    // UC1 - Employee Registration
+    // ==========================
+    private static Employee registerEmployee() {
+        System.out.println("=== USE CASE 1: EMPLOYEE REGISTRATION ===");
 
-			System.out.print("Enter UserName: ");
-			String username = sc.nextLine();
+        try {
+            System.out.print("Enter Employee ID: ");
+            String empID = sc.nextLine();
 
-			System.out.print("Enter Password: ");
-			String password = sc.nextLine();
+            System.out.print("Enter Name: ");
+            String name = sc.nextLine();
 
-			// Validate input
-			Validator.validateEmail(email);
-			Validator.validateEmpID(empID);
-			Validator.validatePhone(phone);
+            System.out.print("Enter Email: ");
+            String email = sc.nextLine();
 
-			// Create user account
-			UserAccount account = new UserAccount(username, password);
+            System.out.print("Enter Phone: ");
+            String phone = sc.nextLine();
 
-			// Create employee
-			emp = new Employee(empID, name, email, phone, account);
+            System.out.print("Enter Username: ");
+            String username = sc.nextLine();
 
-			// Save employee to file
-			emp.persist();
+            System.out.print("Enter Password: ");
+            String password = sc.nextLine();
 
-			System.out.println("Employee registered successfully");
-			System.out.println(emp);
+            // Validate input
+            Validator.validateEmail(email);
+            Validator.validateEmpID(empID);
+            Validator.validatePhone(phone);
 
-		} 
-		catch (ValidationException e) {
-			System.out.println("\nInvalid details: " + e.getMessage());
-		} 
-		catch (IOException e) {
-			System.out.println("\nError saving info");
-		}
+            UserAccount account = new UserAccount(username, password);
+            Employee emp = new Employee(empID, name, email, phone, account);
 
-		// ==========================
-		// USE CASE 2 - AUTHENTICATION
-		// ==========================
-		System.out.println("\n=== USE CASE 2: USER AUTHENTICATION ===");
+            emp.persist();
+            System.out.println("Employee registered successfully.");
+            System.out.println(emp);
 
-		AuthenticationService auth = new AuthenticationService();
+            return emp;
 
-		auth.registerUser();
+        } catch (ValidationException e) {
+            System.out.println("Invalid details: " + e.getMessage());
+        } catch (IOException e) {
+            System.out.println("Error saving info: " + e.getMessage());
+        }
 
-		Session session = auth.login();
+        return null;
+    }
 
-		if (session != null) {
+    // ==========================
+    // UC2 - User Authentication
+    // ==========================
+    private static Session authenticateUser() {
+        System.out.println("\n=== USE CASE 2: USER AUTHENTICATION ===");
 
-			System.out.println("\n" + session);
+        AuthenticationService auth = new AuthenticationService();
+        auth.registerUser();
 
-			if (!session.isExpired()) {
-				System.out.println("Session active and valid.");
-			}
-		}
+        Session session = auth.login();
 
-		// ==========================
-		// USE CASE 3 - PAYSLIP
-		// ==========================
-		System.out.println("\n=== USE CASE 3: PAYSLIP GENERATION ===");
+        if (session != null && !session.isExpired()) {
+            System.out.println("Session active and valid.");
+            System.out.println(session);
+            return session;
+        } else {
+            System.out.println("Login failed or session expired.");
+            return null;
+        }
+    }
 
-		System.out.print("Enter Month: ");
-		String month = sc.nextLine();
+    // ==========================
+    // UC3 - Payslip Generation
+    // ==========================
+    private static Payslip generatePayslip(Employee emp) {
+        System.out.println("\n=== USE CASE 3: PAYSLIP GENERATION ===");
 
-		System.out.print("Enter Basic Salary: ");
-		double basic = sc.nextDouble();
+        try {
+            System.out.print("Enter Month: ");
+            String month = sc.nextLine();
 
-		System.out.print("Enter HRA: ");
-		double hra = sc.nextDouble();
+            System.out.print("Enter Basic Salary: ");
+            double basic = sc.nextDouble();
 
-		System.out.print("Enter DA: ");
-		double da = sc.nextDouble();
+            System.out.print("Enter HRA: ");
+            double hra = sc.nextDouble();
 
-		System.out.print("Enter Allowances: ");
-		double allowances = sc.nextDouble();
+            System.out.print("Enter DA: ");
+            double da = sc.nextDouble();
 
-		PayrollService service = new PayrollService();
+            System.out.print("Enter Allowances: ");
+            double allowances = sc.nextDouble();
+            sc.nextLine(); // consume leftover newline
 
-		Payslip payslip = service.generatePayslip(emp, month, basic, hra, da, allowances);
+            PayrollService service = new PayrollService();
+            Payslip payslip = service.generatePayslip(emp, month, basic, hra, da, allowances);
 
-		System.out.println(payslip);
-		System.out.println("=== USE CASE 4: PAYSLIP PRINT / DOWNLOAD ===");
-		try {
-			// Existing UC3 Payslip
-			Payslip original = payslip;
-			// Extract required fields from UC3 payslip
-			String empId = original.getEmployee().getEmpId();
-			String empName = original.getEmployee().getName();
-			double netPay = original.getComponents().getNetPay();
-			PayslipDownload download = new PayslipDownload(
-					empId,
-					empName,
-					"January 2026",
-					netPay
-					);
-			PayslipDownload cloned = (PayslipDownload) download.clone();
-			if (download.equals(cloned)) {
-				System.out.println("Verified: Download copy is equal to original.");
-			}
-			System.out.println("Original hashcode: " + download.hashCode());
-			System.out.println("Cloned hashcode: " + cloned.hashCode());
-			DownloadToken token = new DownloadToken();
-			if (token.isExpired()) {
-				System.out.println("Download token expired.");
-				return;
-			}
-			FileService fileService = new FileService();
-			String txt = fileService.savePayslipAsText(cloned);
-			String pdf = fileService.savePayslipAsPdf(cloned);
-			System.out.println("\nPayslip Download Successful.");
-			System.out.println("Saved as text file: " + txt);
-			System.out.println("Saved as PDF file: " + pdf);
-			System.out.println("\n--- Printed Payslip ---");
-			System.out.println(cloned);
-		} catch (Exception e) {
-			System.out.println("Error during payslip download.");
-			sc.close();
-		}
-	}
+            System.out.println(payslip);
+            return payslip;
+
+        } catch (Exception e) {
+            System.out.println("Error generating payslip: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // ==========================
+    // UC4 - Payslip Download / Print
+    // ==========================
+    private static void downloadPayslip(Payslip original) {
+        System.out.println("\n=== USE CASE 4: PAYSLIP PRINT / DOWNLOAD ===");
+
+        try {
+            String empId = original.getEmployee().getEmpId();
+            String empName = original.getEmployee().getName();
+            String month = original.getMonth();
+            double netPay = original.getComponents().getNetPay();
+
+            PayslipDownload download = new PayslipDownload(empId, empName, month, netPay);
+            PayslipDownload cloned = (PayslipDownload) download.clone();
+
+            if (download.equals(cloned)) {
+                System.out.println("Verified: Download copy is equal to original.");
+            }
+            System.out.println("Original hashcode: " + download.hashCode());
+            System.out.println("Cloned hashcode: " + cloned.hashCode());
+
+            DownloadToken token = new DownloadToken();
+            if (token.isExpired()) {
+                System.out.println("Download token expired.");
+                return;
+            }
+
+            FileService fileService = new FileService();
+            String txt = fileService.savePayslipAsText(cloned);
+            String pdf = fileService.savePayslipAsPdf(cloned);
+
+            System.out.println("\nPayslip Download Successful.");
+            System.out.println("Saved as text file: " + txt);
+            System.out.println("Saved as PDF file: " + pdf);
+            System.out.println("\n--- Printed Payslip ---");
+            System.out.println(cloned);
+
+        } catch (Exception e) {
+            System.out.println("Error during payslip download: " + e.getMessage());
+        }
+    }
+
+    // ==========================
+    // UC5 - Dashboard Display
+    // ==========================
+    private static void displayDashboard(Employee emp) {
+        System.out.println("\n=== USE CASE 5: DASHBOARD DISPLAY ===");
+
+        System.out.print("Enter Role (EMPLOYEE/MANAGER): ");
+        String role = sc.nextLine().trim().toUpperCase(); // normalize input
+
+        // Create dummy payslips for demonstration
+        ArrayList<Payslip> payslips = new ArrayList<>();
+        SalaryComponents s1 = new SalaryComponents(30000, 2000, 1000, 1000);
+        s1.setNetPay(32000);
+        SalaryComponents s2 = new SalaryComponents(32000, 2000, 1000, 1000);
+        s2.setNetPay(33000);
+        SalaryComponents s3 = new SalaryComponents(33000, 2000, 1000, 1000);
+        s3.setNetPay(34000);
+
+        payslips.add(new Payslip(emp, s1, "Feb"));
+        payslips.add(new Payslip(emp, s2, "Apr"));
+        payslips.add(new Payslip(emp, s3, "May"));
+
+        Dashboard dashboard = DashboardFactory.getDashboard(role);
+        if (dashboard == null) {
+            System.out.println("Invalid role. Dashboard cannot be displayed.");
+            return;
+        }
+
+        dashboard.display(payslips, emp);
+    }
 }
